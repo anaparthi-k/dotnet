@@ -1,7 +1,0 @@
-D:\Programs\Github\dotnet\test\ntest\bin\Debug\Automation.dll
-D:\Programs\Github\dotnet\test\ntest\bin\Debug\Automation.pdb
-D:\Programs\Github\dotnet\test\ntest\Automation\obj\Debug\Automation.csprojAssemblyReference.cache
-D:\Programs\Github\dotnet\test\ntest\Automation\obj\Debug\Automation.csproj.CoreCompileInputs.cache
-D:\Programs\Github\dotnet\test\ntest\Automation\obj\Debug\Automation.csproj.CopyComplete
-D:\Programs\Github\dotnet\test\ntest\Automation\obj\Debug\Automation.dll
-D:\Programs\Github\dotnet\test\ntest\Automation\obj\Debug\Automation.pdb
