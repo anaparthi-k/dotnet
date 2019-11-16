@@ -1,0 +1,7 @@
+D:\Programs\Github\dotnet\test\NTest\bin\Debug\Automation.Utility.dll
+D:\Programs\Github\dotnet\test\NTest\bin\Debug\Automation.Utility.pdb
+D:\Programs\Github\dotnet\test\NTest\Automation.Utility\obj\Debug\Automation.Utility.csprojAssemblyReference.cache
+D:\Programs\Github\dotnet\test\NTest\Automation.Utility\obj\Debug\Automation.Utility.csproj.CoreCompileInputs.cache
+D:\Programs\Github\dotnet\test\NTest\Automation.Utility\obj\Debug\Automation.Utility.csproj.CopyComplete
+D:\Programs\Github\dotnet\test\NTest\Automation.Utility\obj\Debug\Automation.Utility.dll
+D:\Programs\Github\dotnet\test\NTest\Automation.Utility\obj\Debug\Automation.Utility.pdb

@@ -1,0 +1,7 @@
+#file which need to be exclude.
+test\ntest\.vs\
+test\ntest\bin\
+test\ntest\obj\
+test\ntest\*\obj\
+test\ntest\packages\
+*.user
