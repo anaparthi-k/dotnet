@@ -1,0 +1,22 @@
+https://benohead.com/blog/2014/08/13/three-options-to-dynamically-execute-csharp-code/
+
+ private static Assembly CompileSourceRoslyn(string fooSource)
+{
+    using (var ms = new MemoryStream())
+    {
+        string assemblyFileName = "gen" + Guid.NewGuid().ToString().Replace("-", "") + ".dll";
+
+        CSharpCompilation compilation = CSharpCompilation.Create(assemblyFileName,
+            new[] {CSharpSyntaxTree.ParseText(fooSource)},
+            new[]
+            {
+                new MetadataFileReference(typeof (object).Assembly.Location)
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            );
+
+        compilation.Emit(ms);
+        Assembly assembly = Assembly.Load(ms.GetBuffer());
+        return assembly;
+    }
+}
