@@ -1,0 +1,35 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Windows.Forms;
+using System.Threading;
+
+namespace WebBrowserWithoutAForm
+{
+    class Program
+    {
+        private static bool completed = false;
+        private static WebBrowser wb;
+        [STAThread]
+        static void Main(string[] args)
+        {
+            wb = new WebBrowser();
+            wb.DocumentCompleted += new WebBrowserDocumentCompletedEventHandler(wb_DocumentCompleted);
+            wb.Navigate("http://www.google.com");
+            while (!completed)
+            {
+                Application.DoEvents();
+                Thread.Sleep(100);
+            }
+            Console.Write("\n\nDone with it!\n\n");
+            Console.ReadLine();
+        }
+
+
+        static void wb_DocumentCompleted(object sender, WebBrowserDocumentCompletedEventArgs e)
+        {
+            Console.WriteLine(wb.Document.Body.InnerHtml);
+            completed = true;
+        }
+    }
+}
