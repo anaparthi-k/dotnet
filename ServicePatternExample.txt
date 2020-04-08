@@ -1,0 +1,329 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+
+namespace ServicePattern
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            ServiceClient client = new ServiceClient();
+            client.InvokeHandler();
+            Console.ReadKey();
+        }
+    }
+    
+    public class ServiceClient
+    {
+        public void InvokeHandler()
+        {
+            User user = new User();
+            UnitOfWork unitOfWork = new UnitOfWork();
+            DollRepository repository = new DollRepository(unitOfWork);
+            DollInteractor interactor = new DollInteractor(repository);
+
+            AuthorizationServiceHandler authorize = new AuthorizationServiceHandler(user);
+            PersistServiceHandler persistance = new PersistServiceHandler(unitOfWork);
+            ValidateServiceHandler validator = new ValidateServiceHandler();
+
+            IService service = authorize as IService;
+            service
+                .SetNext(validator)
+                .SetNext(interactor)
+                .SetNext(persistance);
+
+            (interactor as IStartService).SetStartupHandler(authorize);
+
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
+            DollRequest request = new DollRequest() { Doll = new DummyDoll() { Name = "sample" } };
+            var response = interactor.Handle(request);
+            watch.Stop();
+            Console.WriteLine("Elpased time:" + watch.ElapsedMilliseconds);
+        }
+    }
+
+
+
+    public interface IUser
+    {
+        bool IsAuthenticated();
+    }
+
+    public class User : IUser
+    {
+        public bool IsAuthenticated()
+        {
+            return true;
+        }
+    }
+
+    public interface IUnitOfWork
+    {
+        void Add(object obj);
+        int CompleteAll();
+    }
+
+    public class UnitOfWork : IUnitOfWork
+    {
+        private List<object> _list = new List<object>();
+        public void Add(object obj)
+        {
+            _list.Add(obj);
+        }
+
+        public int CompleteAll()
+        {
+            int count = _list.Count;
+            _list.Clear();
+            return count;
+        }
+    }
+
+    public abstract class Validator
+    {
+        private Dictionary<string, string> _errors = new Dictionary<string, string>();
+
+        public IReadOnlyDictionary<string, string> Errors => _errors;
+        public bool Success => _errors.Count == 0;
+
+        public void Add(string key, string value)
+        {
+
+        }
+
+        public abstract void Validate(object request);
+    }
+
+    public abstract class ResponseMessage
+    {
+        private IReadOnlyDictionary<string, string> _errors;
+
+        public bool Success => _errors == null || _errors.Count == 0;
+        public IReadOnlyDictionary<string, string> Errors { get => _errors; internal set => _errors = value; }
+    }
+
+    public interface IStartService
+    {
+        void SetStartupHandler(ServiceHandlerBase service);
+    }
+
+    public interface IService
+    {
+        IService SetNext(ServiceHandlerBase handler);
+    }
+
+    public abstract class ServiceHandlerBase : IService, IStartService, IComparable
+    {
+        private ServiceHandlerBase _handler;
+        private ServiceHandlerBase _nextHandler;
+
+        protected class InternalState
+        {
+            public Validator Validator;
+            public object Request;
+            public ResponseMessage Response;
+        }
+
+        void IStartService.SetStartupHandler(ServiceHandlerBase handler)
+        {
+            _handler = handler;
+
+            SortedSet<ServiceHandlerBase> handlers = new SortedSet<ServiceHandlerBase>();
+            while (_handler != null)
+            {
+                bool isAdded = handlers.Add(_handler);
+
+                if (!isAdded)
+                {
+                    throw new ApplicationException("Cycle is detected in the handlers.");
+                }
+
+                _handler = _handler._nextHandler;
+            }
+
+            _handler = handler;
+        }
+
+        IService IService.SetNext(ServiceHandlerBase handler)
+        {
+            _nextHandler = handler;
+            return handler;
+        }
+
+        protected ResponseMessage Process(InternalState state)
+        {
+            Debug.Assert(state.Response != null);
+            Debug.Assert(state.Validator != null);
+
+            _handler.StartProcessHandlers(state);
+
+            return state.Response;
+        }
+
+        private void StartProcessHandlers(InternalState state)
+        {
+            var handler = this;
+
+            while (handler != null)
+            {
+                handler.Handle(state);
+
+                if (!state.Validator.Success)
+                {
+                    state.Response.Errors = state.Validator.Errors;
+                    break;
+                }
+
+                handler = handler._nextHandler;
+            }
+        }
+
+        protected abstract void Handle(InternalState state);
+
+        int IComparable.CompareTo(object obj)
+        {
+            int objHashCode = obj.GetHashCode();
+            int hashCode = GetHashCode();
+            return hashCode.CompareTo(objHashCode);
+        }
+    }
+
+    internal class AuthorizationServiceHandler : ServiceHandlerBase
+    {
+        private readonly IUser _user;
+
+        public AuthorizationServiceHandler(IUser user)
+        {
+            _user = user;
+        }
+
+        protected override void Handle(InternalState state)
+        {
+            if (!_user.IsAuthenticated())
+            {
+                state.Validator.Add("user", "authentication failed.");
+            }
+        }
+    }
+
+    internal class PersistServiceHandler : ServiceHandlerBase
+    {
+        private readonly IUnitOfWork _work;
+
+        public PersistServiceHandler(IUnitOfWork work)
+        {
+            _work = work;
+        }
+
+        protected override void Handle(InternalState state)
+        {
+            int affectedCount = _work.CompleteAll();
+            if (affectedCount <= 0)
+            {
+                state.Validator.Add("persistance", "failed to persist the records in the store.");
+            }
+        }
+    }
+
+    internal class ValidateServiceHandler : ServiceHandlerBase
+    {
+        protected override void Handle(InternalState state)
+        {
+            state.Validator.Validate(state.Request);
+        }
+    }
+
+    public class DollInteractor : ServiceHandlerBase
+    {
+        private readonly IDollRepostory _repostory;
+
+        public DollInteractor(IDollRepostory repostory)
+        {
+            _repostory = repostory;
+        }
+
+        protected override void Handle(InternalState state)
+        {
+            DollRequest request = state.Request as DollRequest;
+            DollResponse response = state.Response as DollResponse;
+            _repostory.Add(request.Doll);
+            response.Doll = request.Doll;
+        }
+
+        public DollResponse Handle(DollRequest request)
+        {
+            InternalState state = new InternalState()
+            {
+                Request = request,
+                Validator = new DollRequestValidator(),
+                Response = new DollResponse()
+            };
+
+            DollResponse response = Process(state) as DollResponse;
+            return response;
+        }
+    }
+
+    public interface IDollRepostory
+    {
+        void Add(DummyDoll doll);
+    }
+
+    public class DollRepository : IDollRepostory
+    {
+        private readonly IUnitOfWork _work;
+
+        public DollRepository(IUnitOfWork work)
+        {
+            _work = work;
+        }
+        public void Add(DummyDoll doll)
+        {
+            _work.Add(doll);
+        }
+    }
+
+    public class DummyDoll
+    {
+        public object Name { get; set; }
+    }
+
+    public class DollRequestValidator : Validator
+    {
+        public override void Validate(object request)
+        {
+            if (request is DollRequest doll)
+            {
+                if (doll.Doll != null)
+                {
+
+                    if (doll.Doll.Name == null)
+                    {
+                        Add("name", "name is required.");
+                    }
+                }
+                else
+                {
+                    Add("doll", "doll is required.");
+                }
+
+            }
+            else
+            {
+                Add("state", "State is invalid.");
+            }
+        }
+    }
+
+    public class DollRequest
+    {
+        public DummyDoll Doll { get; set; }
+    }
+
+    public class DollResponse : ResponseMessage
+    {
+        public DummyDoll Doll { get; internal set; }
+    }
+}
